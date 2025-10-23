@@ -1,7 +1,8 @@
-use actix_web::dev::Server;
-use actix_web::{App, HttpServer, web};
 use std::io;
 use std::net::TcpListener;
+
+use actix_web::dev::Server;
+use actix_web::{App, HttpServer, web};
 
 use super::routes::{health_check, subscribe};
 

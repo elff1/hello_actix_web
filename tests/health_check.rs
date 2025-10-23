@@ -1,6 +1,9 @@
-use hello::startup::run;
-use reqwest::Client;
 use std::net::TcpListener;
+
+use reqwest::Client;
+use sqlx::{Connection, PgConnection};
+
+use hello::{configuration::get_configuration, startup::run};
 
 #[tokio::test]
 async fn health_check_works() {
@@ -19,12 +22,19 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
-    let address = spawn_app();
+    let app_address = spawn_app();
+    let configuration = get_configuration().expect("Failed to read configuration.");
+
+    let db_connection_string = configuration.database.connection_string();
+    let db_connection = PgConnection::connect(&db_connection_string)
+        .await
+        .expect("Failed to connect Postgres.");
+
     let client = Client::new();
 
     let form_data = "name=le%20guin&email=le_guin%40gmail.com";
     let response = client
-        .post(format!("{address}/subscriptions"))
+        .post(format!("{app_address}/subscriptions"))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(form_data)
         .send()
