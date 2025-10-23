@@ -1,6 +1,6 @@
-use std::net::TcpListener;
+use hello::startup::run;
 use reqwest::Client;
-use hello::run;
+use std::net::TcpListener;
 
 #[tokio::test]
 async fn health_check_works() {
@@ -54,7 +54,12 @@ async fn subscribe_returns_a_400_for_invalid_form_data() {
             .await
             .expect("Failed to execute request");
 
-        assert_eq!(400, response.status().as_u16(), "failed of case {}", error_msg);
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "failed of case {}",
+            error_msg
+        );
     }
 }
 
@@ -63,7 +68,7 @@ fn spawn_app() -> String {
     let port = listener.local_addr().unwrap().port();
     let server = run(listener).expect("Failed to bind address");
 
-    let _ = tokio::spawn(server);
+    tokio::spawn(server);
 
     format!("http://127.0.0.1:{port}")
 }
