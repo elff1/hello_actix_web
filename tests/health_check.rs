@@ -66,7 +66,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 }
 
 #[tokio::test]
-async fn subscribe_returns_a_400_for_invalid_form_data() {
+async fn subscribe_returns_a_400_for_missing_field() {
     let test_app = spawn_app().await;
     let client = Client::new();
 
@@ -74,6 +74,63 @@ async fn subscribe_returns_a_400_for_invalid_form_data() {
         ("name=le%20guin", "missing email"),
         ("email=le_guin%40gmail.com", "missing name"),
         ("", "missiing name and email"),
+    ];
+
+    for (invalid_data, error_msg) in test_cases {
+        let response = client
+            .post(format!("{}/subscriptions", test_app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_data)
+            .send()
+            .await
+            .expect("Failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "failed of case {}",
+            error_msg
+        );
+    }
+}
+
+#[tokio::test]
+async fn subscribe_returns_a_400_for_empty_filed() {
+    let test_app = spawn_app().await;
+    let client = Client::new();
+
+    let test_cases = vec![
+        ("name=le%20guin&email=", "empty email"),
+        ("name=&email=le_guin%40gmail.com", "empty name"),
+        ("name=&email=", "empty name and email"),
+    ];
+
+    for (invalid_data, error_msg) in test_cases {
+        let response = client
+            .post(format!("{}/subscriptions", test_app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_data)
+            .send()
+            .await
+            .expect("Failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "failed of case {}",
+            error_msg
+        );
+    }
+}
+
+#[tokio::test]
+async fn subscribe_returns_a_400_for_invalid_email() {
+    let test_app = spawn_app().await;
+    let client = Client::new();
+
+    let test_cases = vec![
+        ("name=le%20guin&email=invalid_email", "invalid email"),
+        ("name=le%20guin&email=%40invalid_email", "invalid email"),
     ];
 
     for (invalid_data, error_msg) in test_cases {
