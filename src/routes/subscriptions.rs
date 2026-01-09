@@ -20,8 +20,7 @@ impl TryFrom<FormData> for NewSubScriber {
             SubscriberEmail::parse(value.email),
         ) {
             (Ok(name), Ok(email)) => Ok(NewSubScriber { name, email }),
-            (Err(str), _) => Err(str),
-            (Ok(_), Err(str)) => Err(str),
+            (Err(str), _) | (_, Err(str)) => Err(str),
         }
     }
 }
