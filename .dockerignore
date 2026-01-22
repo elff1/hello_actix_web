@@ -1,0 +1,13 @@
+.env
+Dockerfile
+README.md
+target/
+tests/
+scripts/
+migrations/
+
+**/.git
+**/.gitignore
+**/.github
+**/.idea
+**/.vscode
