@@ -6,6 +6,7 @@ use sqlx::postgres::PgPoolOptions;
 
 use hello_actix_web::{
     configuration::get_configuration,
+    email_client::EmailClient,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -15,6 +16,18 @@ async fn main() -> io::Result<()> {
     init_subscriber(get_subscriber("hello_actix_web", "info", std::io::stdout));
 
     let configuration = get_configuration().expect("Failed to read configuration.");
+
+    let timeout = configuration.email_client.timeout();
+    let sender_email = configuration
+        .email_client
+        .sender()
+        .expect("Invalid sender email address");
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        sender_email,
+        configuration.email_client.authorization_token,
+        timeout,
+    );
 
     let address = format!(
         "{}:{}",
@@ -29,5 +42,5 @@ async fn main() -> io::Result<()> {
 
     println!("Listening on: {address}");
 
-    run(listener, db_connection_pool)?.await
+    run(listener, db_connection_pool, email_client)?.await
 }
