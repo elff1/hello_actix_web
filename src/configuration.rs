@@ -2,15 +2,10 @@ use secrecy::{ExposeSecret, SecretBox};
 
 use crate::domain::SubscriberEmail;
 
-pub enum Environment {
-    Local,
-    Production,
-}
-
 #[derive(serde::Deserialize)]
 pub struct Settings {
-    pub database: DatabaseSettings,
     pub application: ApplicaionSettings,
+    pub database: DatabaseSettings,
     pub email_client: EmailClientSettings,
 }
 
@@ -38,13 +33,12 @@ pub struct EmailClientSettings {
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    let configuration_directory = base_path.join("configuration");
+    let mut base_path = std::env::current_dir().expect("Failed to determine the current directory");
+    base_path.push("configuration");
+    let configuration_directory = base_path;
 
-    let environment: Environment = std::env::var("APP_ENVIRONMENT")
-        .unwrap_or_else(|_| "local".into())
-        .try_into()
-        .expect("Failed to parse APP_ENVIRONMENT");
+    let env_str = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".into());
+    let environment = Environment::try_from(env_str).expect("Failed to parse APP_ENVIRONMENT");
     let environment_filename = format!("{}.yaml", environment.as_str());
 
     let settings = config::Config::builder()
@@ -90,6 +84,11 @@ impl EmailClientSettings {
     pub fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.timeout_milliseconds)
     }
+}
+
+pub enum Environment {
+    Local,
+    Production,
 }
 
 impl Environment {

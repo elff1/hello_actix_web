@@ -3,7 +3,10 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{NewSubScriber, SubscriberEmail, SubscriberName};
+use crate::{
+    domain::{NewSubScriber, SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
+};
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -27,7 +30,7 @@ impl TryFrom<FormData> for NewSubScriber {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, db_connection_pool),
+    skip(form, db_connection_pool, _email_client),
     fields(
         subscriber_email = %form.email,
         subscriber_name = %form.name
@@ -36,6 +39,7 @@ impl TryFrom<FormData> for NewSubScriber {
 pub async fn subscribe(
     form: web::Form<FormData>,
     db_connection_pool: web::Data<PgPool>,
+    _email_client: web::Data<EmailClient>,
 ) -> HttpResponse {
     let Ok(new_subscriber) = form.0.try_into() else {
         return HttpResponse::BadRequest().finish();

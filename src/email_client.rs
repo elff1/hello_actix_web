@@ -10,6 +10,16 @@ pub struct EmailClient {
     authorization_token: SecretBox<String>,
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct SendEmailRequest<'a> {
+    from: &'a str,
+    to: &'a str,
+    subject: &'a str,
+    html_body: &'a str,
+    text_body: &'a str,
+}
+
 impl EmailClient {
     pub fn new(
         base_url: String,
@@ -25,6 +35,7 @@ impl EmailClient {
             authorization_token,
         }
     }
+
     pub async fn send_email(
         &self,
         recipient: SubscriberEmail,
@@ -53,16 +64,6 @@ impl EmailClient {
 
         Ok(())
     }
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct SendEmailRequest<'a> {
-    from: &'a str,
-    to: &'a str,
-    subject: &'a str,
-    html_body: &'a str,
-    text_body: &'a str,
 }
 
 #[cfg(test)]

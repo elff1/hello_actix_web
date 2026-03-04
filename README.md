@@ -18,9 +18,25 @@ Also, install the SQLx CLI tool with PostgreSQL support:
 
 `./scripts/init_db.sh`
 
+## Run
+
+`cargo run`
+
+Set the `RUST_LOG` environment variable to see detailed logs, default is `info`:
+
+`RUST_LOG=trace cargo run`
+
+Set the `APP_ENVIRONMENT` environment variable to `production` to run in production mode, default is `local`:
+
+`APP_ENVIRONMENT=production cargo run`
+
 ## Test
 
 `cargo test`
+
+Test logs can be viewed in a structured format using `bunyan`:
+
+`TEST_LOG=true cargo test | bunyan`
 
 ## Docker
 
