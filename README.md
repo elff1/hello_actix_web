@@ -18,6 +18,10 @@ Also, install the SQLx CLI tool with PostgreSQL support:
 
 `./scripts/init_db.sh`
 
+To skip Docker setup:
+
+`SKIP_DOCKER=true ./scripts/init_db.sh`
+
 ## Run
 
 `cargo run`
@@ -25,6 +29,10 @@ Also, install the SQLx CLI tool with PostgreSQL support:
 Set the `RUST_LOG` environment variable to see detailed logs, default is `info`:
 
 `RUST_LOG=trace cargo run`
+
+Structured logs can be viewed in a more readable format using `bunyan`:
+
+`cargo run | bunyan`
 
 Set the `APP_ENVIRONMENT` environment variable to `production` to run in production mode, default is `local`:
 
@@ -34,9 +42,9 @@ Set the `APP_ENVIRONMENT` environment variable to `production` to run in product
 
 `cargo test`
 
-Test logs can be viewed in a structured format using `bunyan`:
+Set `TEST_LOG` environment variable to see logs during tests, and the default log level is `debug` which also can be overridden by `RUST_LOG`:
 
-`TEST_LOG=true cargo test | bunyan`
+`TEST_LOG=true RUST_LOG=debug cargo test | bunyan`
 
 ## Docker
 

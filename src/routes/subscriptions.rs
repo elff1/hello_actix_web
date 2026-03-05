@@ -61,8 +61,8 @@ pub async fn insert_subscriber(
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-        INSERT INTO subscriptions (id, email, name, subscribed_at)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO subscriptions (id, email, name, subscribed_at, status)
+        VALUES ($1, $2, $3, $4, 'confirmed')
         "#,
         Uuid::new_v4(),
         new_subscriber.email.as_ref(),
@@ -72,6 +72,7 @@ pub async fn insert_subscriber(
     .execute(db_connection_pool)
     .await
     .map_err(|e| {
+        // TODO: handle duplicate email error, which returns HTTP 500 now
         tracing::error!("Failed to excute query: {:?}", e);
         e
     })?;
