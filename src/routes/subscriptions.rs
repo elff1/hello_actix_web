@@ -30,7 +30,7 @@ impl TryFrom<FormData> for NewSubScriber {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, db_connection_pool, _email_client),
+    skip(form, db_connection_pool, email_client),
     fields(
         subscriber_email = %form.email,
         subscriber_name = %form.name
@@ -39,16 +39,41 @@ impl TryFrom<FormData> for NewSubScriber {
 pub async fn subscribe(
     form: web::Form<FormData>,
     db_connection_pool: web::Data<PgPool>,
-    _email_client: web::Data<EmailClient>,
+    email_client: web::Data<EmailClient>,
 ) -> HttpResponse {
     let Ok(new_subscriber) = form.0.try_into() else {
         return HttpResponse::BadRequest().finish();
     };
 
-    match insert_subscriber(&db_connection_pool, &new_subscriber).await {
+    if insert_subscriber(&db_connection_pool, &new_subscriber)
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    match send_confirmation_email(&new_subscriber, &email_client).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
+}
+
+#[tracing::instrument(
+    name = "Sending a confirmation eamil",
+    skip(new_subscriber, email_client)
+)]
+pub async fn send_confirmation_email(
+    new_subscriber: &NewSubScriber,
+    email_client: &EmailClient,
+) -> Result<(), reqwest::Error> {
+    email_client
+        .send_email(
+            &new_subscriber.email,
+            "subject",
+            "html_content",
+            "text_content",
+        )
+        .await
 }
 
 #[tracing::instrument(

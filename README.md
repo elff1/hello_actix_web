@@ -44,7 +44,7 @@ Set the `APP_ENVIRONMENT` environment variable to `production` to run in product
 
 Set `TEST_LOG` environment variable to see logs during tests, and the default log level is `debug` which also can be overridden by `RUST_LOG`:
 
-`TEST_LOG=true RUST_LOG=debug cargo test | bunyan`
+`TEST_LOG=true RUST_LOG="sqlx=error,info" cargo test | bunyan`
 
 ## Docker
 

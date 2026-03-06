@@ -1,8 +1,19 @@
+use wiremock::{
+    Mock, ResponseTemplate,
+    matchers::{any, header, header_exists, method, path},
+};
+
 use crate::helper::spawn_app;
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     let test_app = spawn_app().await;
+
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&test_app.mock_email_server)
+        .await;
 
     let form_data = "name=le%20guin&email=le_guin%40gmail.com";
     let response = test_app.post_subscriptions(form_data.into()).await;
@@ -81,4 +92,21 @@ async fn subscribe_returns_a_400_for_invalid_email() {
             error_msg
         );
     }
+}
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_for_valid_data() {
+    let test_app = spawn_app().await;
+
+    Mock::given(header_exists("X-Postmark-Server-Token"))
+        .and(header("Content-Type", "application/json"))
+        .and(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&test_app.mock_email_server)
+        .await;
+
+    let form_data = "name=le%20guin&email=le_guin%40gmail.com";
+    let _response = test_app.post_subscriptions(form_data.into()).await;
 }

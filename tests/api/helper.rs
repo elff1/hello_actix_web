@@ -8,6 +8,7 @@ use hello_actix_web::{
     startup::Server,
     telemetry::{get_subscriber, init_subscriber},
 };
+use wiremock::MockServer;
 
 static TRACIING: Lazy<()> = Lazy::new(|| {
     if std::env::var("TEST_LOG").is_ok() {
@@ -20,6 +21,7 @@ static TRACIING: Lazy<()> = Lazy::new(|| {
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub mock_email_server: MockServer,
 }
 
 impl TestApp {
@@ -37,10 +39,13 @@ impl TestApp {
 pub async fn spawn_app() -> TestApp {
     Lazy::force(&TRACIING);
 
+    let mock_email_server = MockServer::start().await;
+
     let configuration = {
         let mut c = get_configuration().expect("Failed to read configuration.");
         c.application.port = 0;
         c.database.database_name = Uuid::new_v4().to_string();
+        c.email_client.base_url = mock_email_server.uri();
         c
     };
 
@@ -57,6 +62,7 @@ pub async fn spawn_app() -> TestApp {
     TestApp {
         address: listen_address,
         db_pool: db_connection_pool,
+        mock_email_server,
     }
 }
 
