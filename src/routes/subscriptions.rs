@@ -85,6 +85,7 @@ pub async fn send_confirmation_email(
         .await
 }
 
+// status: pending_confirmation, confirmed
 #[tracing::instrument(
     name = "Saving new subscriber details in the DB",
     skip(new_subscriber, db_connection_pool)
@@ -96,7 +97,7 @@ pub async fn insert_subscriber(
     sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at, status)
-        VALUES ($1, $2, $3, $4, 'confirmed')
+        VALUES ($1, $2, $3, $4, 'pending_confirmation')
         "#,
         Uuid::new_v4(),
         new_subscriber.email.as_ref(),
