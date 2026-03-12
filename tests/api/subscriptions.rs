@@ -3,7 +3,7 @@ use wiremock::{
     matchers::{any, header, header_exists, method, path},
 };
 
-use crate::helper::spawn_app;
+use crate::helper::*;
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
@@ -109,4 +109,17 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
 
     let form_data = "name=le%20guin&email=le_guin%40gmail.com";
     let _response = test_app.post_subscriptions(form_data.into()).await;
+
+    let email_request = test_app
+        .mock_email_server
+        .received_requests()
+        .await
+        .unwrap()
+        .swap_remove(0);
+    let email_json: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+
+    let html_link = get_url_links(email_json["HtmlBody"].as_str().unwrap())[0];
+    let text_link = get_url_links(email_json["TextBody"].as_str().unwrap())[0];
+
+    assert_eq!(html_link, text_link);
 }

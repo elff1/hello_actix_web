@@ -52,27 +52,36 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     }
 
-    match send_confirmation_email(&new_subscriber, &email_client).await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    if send_confirmation_email(&new_subscriber, &email_client)
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
     }
+
+    HttpResponse::Ok().finish()
 }
 
 #[tracing::instrument(
-    name = "Sending a confirmation eamil",
+    name = "Sending a confirmation eamil to the new subscriber",
     skip(new_subscriber, email_client)
 )]
 pub async fn send_confirmation_email(
     new_subscriber: &NewSubScriber,
     email_client: &EmailClient,
 ) -> Result<(), reqwest::Error> {
+    let confirmation_link = "https://localhost/subscriptions/confirm";
+    let html_body = format!(
+        "<p>Please confirm your subscription: <a href=\"{}\">{}</a></p>",
+        confirmation_link, confirmation_link
+    );
+    let text_body = format!(
+        "Please visit {} to confirm your subscription.",
+        confirmation_link
+    );
+
     email_client
-        .send_email(
-            &new_subscriber.email,
-            "subject",
-            "html_content",
-            "text_content",
-        )
+        .send_email(&new_subscriber.email, "Welcome!", &html_body, &text_body)
         .await
 }
 

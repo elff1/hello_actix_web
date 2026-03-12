@@ -25,7 +25,10 @@ tracing-actix-web = "0.7"
 secrecy = { version = "0.10", features = ["serde"] }
 unicode-segmentation = "1"
 validator = "0.20"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = [
+    "json",
+    "rustls",
+] }
 
 [dependencies.sqlx]
 version = "0.8"
@@ -45,3 +48,4 @@ claim = "0.5"
 fake = "4"
 wiremock = "0.6"
 serde_json = "1"
+linkify = "0.10"

@@ -87,3 +87,11 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
     connection_pool
 }
+
+pub fn get_url_links(s: &str) -> Vec<&str> {
+    linkify::LinkFinder::new()
+        .links(s)
+        .filter(|l| l.kind() == &linkify::LinkKind::Url)
+        .map(|l| l.as_str())
+        .collect()
+}
