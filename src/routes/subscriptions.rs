@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    configuration::ApplicaionSettings,
     domain::{NewSubScriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
 };
@@ -30,7 +31,7 @@ impl TryFrom<FormData> for NewSubScriber {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, db_connection_pool, email_client),
+    skip(form, application, db_connection_pool, email_client),
     fields(
         subscriber_email = %form.email,
         subscriber_name = %form.name
@@ -38,6 +39,7 @@ impl TryFrom<FormData> for NewSubScriber {
 )]
 pub async fn subscribe(
     form: web::Form<FormData>,
+    application: web::Data<ApplicaionSettings>,
     db_connection_pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
 ) -> HttpResponse {
@@ -52,7 +54,7 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     }
 
-    if send_confirmation_email(&new_subscriber, &email_client)
+    if send_confirmation_email(&new_subscriber, &application, &email_client)
         .await
         .is_err()
     {
@@ -64,16 +66,21 @@ pub async fn subscribe(
 
 #[tracing::instrument(
     name = "Sending a confirmation eamil to the new subscriber",
-    skip(new_subscriber, email_client)
+    skip(new_subscriber, application, email_client)
 )]
 pub async fn send_confirmation_email(
     new_subscriber: &NewSubScriber,
+    application: &ApplicaionSettings,
     email_client: &EmailClient,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = "https://localhost/subscriptions/confirm";
+    // TODO: hard code token
+    let confirmation_link = format!(
+        "{}/subscriptions/confirm?subscription_token=token",
+        application.base_url
+    );
     let html_body = format!(
-        "<p>Please confirm your subscription: <a href=\"{}\">{}</a></p>",
-        confirmation_link, confirmation_link
+        "<p>Please <a href=\"{}\">click</a> to confirm your subscription.</p>",
+        confirmation_link
     );
     let text_body = format!(
         "Please visit {} to confirm your subscription.",

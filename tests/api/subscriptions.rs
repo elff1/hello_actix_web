@@ -131,10 +131,7 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
         .await
         .unwrap()
         .swap_remove(0);
-    let email_json: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+    let confirmation_links = TestApp::get_confirmation_links(&email_request);
 
-    let html_link = get_url_links(email_json["HtmlBody"].as_str().unwrap())[0];
-    let text_link = get_url_links(email_json["TextBody"].as_str().unwrap())[0];
-
-    assert_eq!(html_link, text_link);
+    assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }

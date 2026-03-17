@@ -8,7 +8,7 @@ async fn health_check_works() {
     let client = Client::new();
 
     let response = client
-        .get(format!("http://{}/health_check", test_app.address))
+        .get(format!("{}/health_check", test_app.address))
         .send()
         .await
         .expect("Failed to execute request");

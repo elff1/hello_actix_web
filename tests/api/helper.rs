@@ -24,15 +24,48 @@ pub struct TestApp {
     pub mock_email_server: MockServer,
 }
 
+pub struct ConfirmationLinks {
+    pub html: reqwest::Url,
+    pub plain_text: reqwest::Url,
+}
+
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         reqwest::Client::new()
-            .post(format!("http://{}/subscriptions", self.address))
+            .post(format!("{}/subscriptions", self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
             .await
             .expect("Failed to execute request")
+    }
+
+    pub fn get_url_links(s: &str) -> Vec<&str> {
+        linkify::LinkFinder::new()
+            .links(s)
+            .filter(|l| l.kind() == &linkify::LinkKind::Url)
+            .map(|l| l.as_str())
+            .collect()
+    }
+
+    pub fn get_confirmation_links(request: &wiremock::Request) -> ConfirmationLinks {
+        let get_confirmation_link = |links: Vec<&str>| {
+            assert_eq!(links.len(), 1);
+            let link = reqwest::Url::parse(links[0]).unwrap();
+            assert_eq!(link.host_str().unwrap(), "127.0.0.1");
+            link
+        };
+
+        let email_json: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+
+        ConfirmationLinks {
+            html: get_confirmation_link(Self::get_url_links(
+                email_json["HtmlBody"].as_str().unwrap(),
+            )),
+            plain_text: get_confirmation_link(Self::get_url_links(
+                email_json["TextBody"].as_str().unwrap(),
+            )),
+        }
     }
 }
 
@@ -60,7 +93,7 @@ pub async fn spawn_app() -> TestApp {
     tokio::spawn(actix_server);
 
     TestApp {
-        address: listen_address,
+        address: format!("http://{}", listen_address),
         db_pool: db_connection_pool,
         mock_email_server,
     }
@@ -86,12 +119,4 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate the database.");
 
     connection_pool
-}
-
-pub fn get_url_links(s: &str) -> Vec<&str> {
-    linkify::LinkFinder::new()
-        .links(s)
-        .filter(|l| l.kind() == &linkify::LinkKind::Url)
-        .map(|l| l.as_str())
-        .collect()
 }
