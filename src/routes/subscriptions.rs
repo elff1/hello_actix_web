@@ -73,7 +73,7 @@ pub async fn subscribe(
 // status: pending_confirmation, confirmed
 #[tracing::instrument(
     name = "Saving new subscriber details in the DB",
-    skip(new_subscriber, db_connection_pool)
+    skip(db_connection_pool, new_subscriber)
 )]
 pub async fn insert_subscriber(
     db_connection_pool: &PgPool,
@@ -113,7 +113,7 @@ pub async fn insert_subscriber(
 
 #[tracing::instrument(
     name = "Saving subscription token in the DB",
-    skip(subscriber, db_connection_pool)
+    skip(db_connection_pool, subscriber)
 )]
 pub async fn store_token(
     db_connection_pool: &PgPool,
