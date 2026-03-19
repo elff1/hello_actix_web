@@ -1,11 +1,16 @@
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
+use rand::{distr::Alphanumeric, prelude::*};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     configuration::ApplicaionSettings,
-    domain::{NewSubScriber, SubscriberEmail, SubscriberName},
+    constants::SUBSCRIPTION_TOKEN_LENGTH,
+    domain::{
+        NewSubScriber, PersistedSubscriber, PersistedSubscriptionTokens, SubscriberEmail,
+        SubscriberName,
+    },
     email_client::EmailClient,
 };
 
@@ -47,14 +52,15 @@ pub async fn subscribe(
         return HttpResponse::BadRequest().finish();
     };
 
-    if insert_subscriber(&db_connection_pool, &new_subscriber)
-        .await
-        .is_err()
-    {
+    let Ok(subscriber) = insert_subscriber(&db_connection_pool, new_subscriber).await else {
         return HttpResponse::InternalServerError().finish();
-    }
+    };
 
-    if send_confirmation_email(&new_subscriber, &application, &email_client)
+    let Ok(token) = store_token(&db_connection_pool, &subscriber).await else {
+        return HttpResponse::InternalServerError().finish();
+    };
+
+    if send_confirmation_email(&email_client, &application, &subscriber, &token)
         .await
         .is_err()
     {
@@ -64,19 +70,91 @@ pub async fn subscribe(
     HttpResponse::Ok().finish()
 }
 
+// status: pending_confirmation, confirmed
+#[tracing::instrument(
+    name = "Saving new subscriber details in the DB",
+    skip(new_subscriber, db_connection_pool)
+)]
+pub async fn insert_subscriber(
+    db_connection_pool: &PgPool,
+    new_subscriber: NewSubScriber,
+) -> Result<PersistedSubscriber, sqlx::Error> {
+    let uuid = Uuid::new_v4();
+    let time = Utc::now();
+    let status = "pending_confirmation".to_string();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO subscriptions (id, email, name, subscribed_at, status)
+        VALUES ($1, $2, $3, $4, $5)
+        "#,
+        uuid,
+        new_subscriber.email.as_ref(),
+        new_subscriber.name.as_ref(),
+        time,
+        status
+    )
+    .execute(db_connection_pool)
+    .await
+    .map_err(|e| {
+        // TODO: handle duplicate email error, which returns HTTP 500 now
+        tracing::error!("Failed to excute query: {:?}", e);
+        e
+    })?;
+
+    Ok(PersistedSubscriber {
+        id: uuid,
+        email: new_subscriber.email,
+        name: new_subscriber.name,
+        subscribed_at: time,
+        status,
+    })
+}
+
+#[tracing::instrument(
+    name = "Saving subscription token in the DB",
+    skip(subscriber, db_connection_pool)
+)]
+pub async fn store_token(
+    db_connection_pool: &PgPool,
+    subscriber: &PersistedSubscriber,
+) -> Result<PersistedSubscriptionTokens, sqlx::Error> {
+    let token = generate_subscription_token();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO subscription_tokens (subscription_token, subscriber_id)
+        VALUES ($1, $2)
+        "#,
+        token,
+        subscriber.id,
+    )
+    .execute(db_connection_pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to excute query: {:?}", e);
+        e
+    })?;
+
+    Ok(PersistedSubscriptionTokens {
+        subscriber_id: subscriber.id,
+        token,
+    })
+}
+
 #[tracing::instrument(
     name = "Sending a confirmation eamil to the new subscriber",
-    skip(new_subscriber, application, email_client)
+    skip(email_client, application, subscriber, token)
 )]
 pub async fn send_confirmation_email(
-    new_subscriber: &NewSubScriber,
-    application: &ApplicaionSettings,
     email_client: &EmailClient,
+    application: &ApplicaionSettings,
+    subscriber: &PersistedSubscriber,
+    token: &PersistedSubscriptionTokens,
 ) -> Result<(), reqwest::Error> {
-    // TODO: hard code token
     let confirmation_link = format!(
-        "{}/subscriptions/confirm?subscription_token=token",
-        application.base_url
+        "{}/subscriptions/confirm?subscription_token={}",
+        application.base_url, token.token
     );
     let html_body = format!(
         "<p>Please <a href=\"{}\">click</a> to confirm your subscription.</p>",
@@ -88,36 +166,14 @@ pub async fn send_confirmation_email(
     );
 
     email_client
-        .send_email(&new_subscriber.email, "Welcome!", &html_body, &text_body)
+        .send_email(&subscriber.email, "Welcome!", &html_body, &text_body)
         .await
 }
 
-// status: pending_confirmation, confirmed
-#[tracing::instrument(
-    name = "Saving new subscriber details in the DB",
-    skip(new_subscriber, db_connection_pool)
-)]
-pub async fn insert_subscriber(
-    db_connection_pool: &PgPool,
-    new_subscriber: &NewSubScriber,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        r#"
-        INSERT INTO subscriptions (id, email, name, subscribed_at, status)
-        VALUES ($1, $2, $3, $4, 'pending_confirmation')
-        "#,
-        Uuid::new_v4(),
-        new_subscriber.email.as_ref(),
-        new_subscriber.name.as_ref(),
-        Utc::now()
-    )
-    .execute(db_connection_pool)
-    .await
-    .map_err(|e| {
-        // TODO: handle duplicate email error, which returns HTTP 500 now
-        tracing::error!("Failed to excute query: {:?}", e);
-        e
-    })?;
-
-    Ok(())
+fn generate_subscription_token() -> String {
+    let mut rng = rand::rng();
+    std::iter::repeat_with(|| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(SUBSCRIPTION_TOKEN_LENGTH)
+        .collect()
 }

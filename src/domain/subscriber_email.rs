@@ -19,12 +19,18 @@ impl AsRef<str> for SubscriberEmail {
     }
 }
 
+impl From<SubscriberEmail> for String {
+    fn from(val: SubscriberEmail) -> Self {
+        val.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use claim::{assert_err, assert_ok};
     use fake::{Fake, faker::internet::en::SafeEmail};
 
-    use crate::domain::SubscriberEmail;
+    use super::SubscriberEmail;
 
     #[test]
     fn empty_string_rejected() {

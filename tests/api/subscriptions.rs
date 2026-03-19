@@ -3,6 +3,8 @@ use wiremock::{
     matchers::{any, header, header_exists, method, path},
 };
 
+use hello_actix_web::constants::SUBSCRIPTION_TOKEN_LENGTH;
+
 use crate::helper::*;
 
 #[tokio::test]
@@ -87,7 +89,7 @@ async fn subscribe_returns_a_400_for_invalid_email() {
 }
 
 #[tokio::test]
-async fn subscribe_persists_the_new_subscriber() {
+async fn subscribe_persists_the_new_subscriber_and_token() {
     let test_app = spawn_app().await;
 
     Mock::given(any())
@@ -99,14 +101,31 @@ async fn subscribe_persists_the_new_subscriber() {
     let form_data = "name=le%20guin&email=le_guin%40gmail.com";
     let _response = test_app.post_subscriptions(form_data.into()).await;
 
-    let saved = sqlx::query!("SELECT email, name, status FROM subscriptions")
+    let persisted_subscriber = sqlx::query!("SELECT id, email, name, status FROM subscriptions")
         .fetch_one(&test_app.db_pool)
         .await
         .expect("Failed to fetch saved subscriptions.");
 
-    assert_eq!(saved.name, "le guin");
-    assert_eq!(saved.email, "le_guin@gmail.com");
-    assert_eq!(saved.status, "pending_confirmation");
+    let persisted_token =
+        sqlx::query!("SELECT subscription_token, subscriber_id FROM subscription_tokens")
+            .fetch_one(&test_app.db_pool)
+            .await
+            .expect("Failed to fetch saved subscription tokens.");
+
+    assert_eq!(persisted_subscriber.name, "le guin");
+    assert_eq!(persisted_subscriber.email, "le_guin@gmail.com");
+    assert_eq!(persisted_subscriber.status, "pending_confirmation");
+    assert_eq!(persisted_subscriber.id, persisted_token.subscriber_id);
+    assert_eq!(
+        persisted_token.subscription_token.len(),
+        SUBSCRIPTION_TOKEN_LENGTH
+    );
+    assert!(
+        persisted_token
+            .subscription_token
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric())
+    )
 }
 
 #[tokio::test]

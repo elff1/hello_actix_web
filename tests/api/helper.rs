@@ -2,13 +2,13 @@ use once_cell::sync::Lazy;
 use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
+use wiremock::MockServer;
 
 use hello_actix_web::{
     configuration::{DatabaseSettings, get_configuration},
     startup::Server,
     telemetry::{get_subscriber, init_subscriber},
 };
-use wiremock::MockServer;
 
 static TRACIING: Lazy<()> = Lazy::new(|| {
     if std::env::var("TEST_LOG").is_ok() {

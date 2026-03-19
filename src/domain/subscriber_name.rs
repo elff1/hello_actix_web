@@ -26,11 +26,17 @@ impl AsRef<str> for SubscriberName {
     }
 }
 
+impl From<SubscriberName> for String {
+    fn from(val: SubscriberName) -> Self {
+        val.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use claim::{assert_err, assert_ok};
 
-    use crate::domain::SubscriberName;
+    use super::SubscriberName;
 
     #[test]
     fn a_256_grapheme_long_name_is_valid() {
