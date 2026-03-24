@@ -1,4 +1,5 @@
-use actix_web::{HttpResponse, web};
+use actix_web::{HttpResponse, http::StatusCode, web};
+use anyhow::Context;
 use chrono::Utc;
 use rand::{distr::Alphanumeric, prelude::*};
 use sqlx::{PgPool, Postgres, Transaction};
@@ -13,6 +14,43 @@ use crate::{
     },
     email_client::EmailClient,
 };
+
+#[derive(thiserror::Error)]
+pub enum SubscriberError {
+    #[error("{0}")]
+    ValidationError(String),
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl std::fmt::Debug for SubscriberError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl actix_web::ResponseError for SubscriberError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            SubscriberError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+fn error_chain_fmt(
+    e: &impl std::error::Error,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    writeln!(f, "{}\n", e)?;
+    let mut source = e.source();
+    while let Some(cause) = source {
+        writeln!(f, "Caused by:\n\t{}", cause)?;
+        source = cause.source();
+    }
+
+    Ok(())
+}
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -47,35 +85,35 @@ pub async fn subscribe(
     application: web::Data<ApplicaionSettings>,
     db_connection_pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
-) -> HttpResponse {
-    let Ok(new_subscriber) = form.0.try_into() else {
-        return HttpResponse::BadRequest().finish();
-    };
+) -> Result<HttpResponse, SubscriberError> {
+    let new_subscriber = form
+        .0
+        .try_into()
+        .map_err(SubscriberError::ValidationError)?;
 
-    let Ok(mut transaction) = db_connection_pool.begin().await else {
-        return HttpResponse::InternalServerError().finish();
-    };
-
-    let Ok(subscriber) = insert_subscriber(&mut transaction, new_subscriber).await else {
-        return HttpResponse::InternalServerError().finish();
-    };
-
-    let Ok(token) = store_token(&mut transaction, &subscriber).await else {
-        return HttpResponse::InternalServerError().finish();
-    };
-
-    if transaction.commit().await.is_err() {
-        return HttpResponse::InternalServerError().finish();
-    }
-
-    if send_confirmation_email(&email_client, &application, &subscriber, &token)
+    let mut transaction = db_connection_pool
+        .begin()
         .await
-        .is_err()
-    {
-        return HttpResponse::InternalServerError().finish();
-    }
+        .context("failed to acquire a Postgres connection from the pool")?;
 
-    HttpResponse::Ok().finish()
+    let subscriber = insert_subscriber(&mut transaction, new_subscriber)
+        .await
+        .context("failed to insert new subscriber in the DB")?;
+
+    let token = store_token(&mut transaction, &subscriber)
+        .await
+        .context("failed to store the confirmation token for a new subscriber")?;
+
+    transaction
+        .commit()
+        .await
+        .context("failed to commit SQL transaction to store a new subscriber")?;
+
+    send_confirmation_email(&email_client, &application, &subscriber, &token)
+        .await
+        .context("failed to send a confirmation email")?;
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 // status: pending_confirmation, confirmed

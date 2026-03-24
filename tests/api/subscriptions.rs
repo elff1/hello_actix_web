@@ -154,3 +154,19 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
 
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }
+
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    let test_app = spawn_app().await;
+    let form_data = "name=le%20guin&email=le_guin%40gmail.com";
+
+    //let _ = sqlx::query!("ALTER TABLE subscription_tokens DROP COLUMN subscription_token")
+    let _ = sqlx::query!("ALTER TABLE subscriptions DROP COLUMN email")
+        .execute(&test_app.db_pool)
+        .await
+        .expect("Failed to fetch saved subscriptions.");
+
+    let response = test_app.post_subscriptions(form_data.into()).await;
+
+    assert_eq!(response.status().as_u16(), 500);
+}
