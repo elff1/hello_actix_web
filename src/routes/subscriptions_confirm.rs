@@ -1,7 +1,31 @@
-use actix_web::{HttpResponse, web};
+use actix_web::{HttpResponse, http::StatusCode, web};
+use anyhow::Context;
 use sqlx::PgPool;
 
-use crate::domain::PersistedSubscriptionTokens;
+use crate::{domain::PersistedSubscriptionTokens, helper::*};
+
+#[derive(thiserror::Error)]
+pub enum ConfirmError {
+    #[error("invalid token")]
+    InvalidToken,
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl std::fmt::Debug for ConfirmError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl actix_web::ResponseError for ConfirmError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            ConfirmError::InvalidToken => StatusCode::UNAUTHORIZED,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
 
 #[derive(serde::Deserialize)]
 pub struct Parameters {
@@ -16,19 +40,23 @@ pub struct Parameters {
 pub async fn confirm(
     parameters: web::Query<Parameters>,
     db_connection_pool: web::Data<PgPool>,
-) -> HttpResponse {
+) -> Result<HttpResponse, ConfirmError> {
     let token = parameters.0.subscription_token;
 
-    let persisted_token = match query_token(&db_connection_pool, token).await {
-        Ok(Some(t)) => t,
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        _ => return HttpResponse::InternalServerError().finish(),
-    };
+    let persisted_token = query_token(&db_connection_pool, token)
+        .await
+        .context("failed to query token in the DB")?
+        .ok_or(ConfirmError::InvalidToken)?;
 
-    match update_subscriber(&db_connection_pool, &persisted_token).await {
-        Ok(1) => HttpResponse::Ok().finish(),
-        _ => HttpResponse::InternalServerError().finish(),
+    match update_subscriber(&db_connection_pool, &persisted_token)
+        .await
+        .context("failed to update subscriber status in the DB")?
+    {
+        1 => (),
+        n => tracing::warn!("[{n}] rows affected, not ONE"),
     }
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(

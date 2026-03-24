@@ -164,7 +164,7 @@ async fn subscribe_fails_if_there_is_a_fatal_database_error() {
     let _ = sqlx::query!("ALTER TABLE subscriptions DROP COLUMN email")
         .execute(&test_app.db_pool)
         .await
-        .expect("Failed to fetch saved subscriptions.");
+        .expect("Failed to alter table.");
 
     let response = test_app.post_subscriptions(form_data.into()).await;
 

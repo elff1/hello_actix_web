@@ -6,45 +6,45 @@ A simple web application using the Actix Web framework in Rust.
 
 ### Install Tools
 
-Make sure you have Rust and Cargo installed. You can install them from [rustup.rs](https://rustup.rs/).
+- Make sure you have Rust and Cargo installed. You can install them from [rustup.rs](https://rustup.rs/).
 
-PostgreSQL should be installed (only its client `psql` is needed). You can download it from [postgresql.org](https://www.postgresql.org/download/).
+- PostgreSQL should be installed (only its client `psql` is needed). You can download it from [postgresql.org](https://www.postgresql.org/download/).
 
-Also, install the SQLx CLI tool with PostgreSQL support:
+- Also, install the SQLx CLI tool with PostgreSQL support:
 
-`cargo install --version=0.8.6 sqlx-cli --no-default-features --features postgres`
+    `cargo install --version=0.8.6 sqlx-cli --no-default-features --features postgres`
 
 ### DB Setup
 
 `./scripts/init_db.sh`
 
-To skip Docker setup:
+- To skip Docker setup:
 
-`SKIP_DOCKER=true ./scripts/init_db.sh`
+    `SKIP_DOCKER=true ./scripts/init_db.sh`
 
 ## Run
 
 `cargo run`
 
-Set the `RUST_LOG` environment variable to see detailed logs, default is `info`:
+- Set the `RUST_LOG` environment variable to see detailed logs, default is `info`:
 
-`RUST_LOG=trace cargo run`
+    `RUST_LOG=trace cargo run`
 
-Structured logs can be viewed in a more readable format using `bunyan`:
+- Structured logs can be viewed in a more readable format using `bunyan`:
 
-`cargo run | bunyan`
+    `cargo run | bunyan`
 
-Set the `APP_ENVIRONMENT` environment variable to `production` to run in production mode, default is `local`:
+- Set the `APP_ENVIRONMENT` environment variable to `production` to run in production mode, default is `local`:
 
-`APP_ENVIRONMENT=production cargo run`
+    `APP_ENVIRONMENT=production cargo run`
 
 ## Test
 
 `cargo test`
 
-Set `TEST_LOG` environment variable to see logs during tests, and the default log level is `debug` which also can be overridden by `RUST_LOG`:
+- Set `TEST_LOG` environment variable to see logs during tests, and the default log level is `debug` which also can be overridden by `RUST_LOG`:
 
-`TEST_LOG=true RUST_LOG="sqlx=error,info" cargo test | bunyan`
+    `TEST_LOG=true RUST_LOG="sqlx=error,info" cargo test | bunyan`
 
 ## Docker
 
